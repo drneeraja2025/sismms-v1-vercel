@@ -1,0 +1,8 @@
+# GNA MANDATE VI: This firewall makes our core architecture files "read-only."
+# This prevents the "Context Rot" reversion loop that destroyed SISMMS v2-v4.
+.env
+src/utility/SupabaseClient.ts
+src/contexts/AuthContext.tsx
+src/App.tsx
+src/pages/Auth.tsx
+src/components/Navigation.tsx

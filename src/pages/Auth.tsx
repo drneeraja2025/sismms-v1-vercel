@@ -1,7 +1,5 @@
-// GNA Code Governance Protocol: Auth Page (Stable - CORRECTED)
-// This file provides the UI for the /auth route.
-// It calls the functions from the GNA-FIX context (File 3).
-// It MUST be listed in .aiexclude
+// File: src/pages/Auth.tsx
+
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 // GNA-FIX: Importing the context (File 3)
@@ -11,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/components/ui/toaster'; // GNA-FIX-024: CORRECTED IMPORT - uses consolidated utility
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -22,8 +20,8 @@ const Auth = () => {
   
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
-
+  // GNA-FIX-024: REMOVED the 'const { toast } = useToast();' hook call
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);

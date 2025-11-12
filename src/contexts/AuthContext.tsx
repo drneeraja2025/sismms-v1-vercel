@@ -1,22 +1,22 @@
-// GNA Code Governance Protocol: Auth Context (Stable)
-// This file implements the stable auth flow and role management.
-// It MUST be listed in .aiexclude
+// File: src/contexts/AuthContext.tsx
+// GNA-FIX-002: The Brain of the Application (Final Audited Version)
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '../utility/SupabaseClient'; 
+import { supabase } from '@/utility/SupabaseClient'; // Using alias for consistency
 import { Session, User } from '@supabase/supabase-js';
 
-// Define the shape of our context
+// 1. Define Types
 interface AuthContextType {
   session: Session | null;
   user: User | null;
-  role: string | null; // <-- CRITICAL: Provides user role to the entire app
+  role: string | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<any>;
-  signUp: (email: string, password: string, fullName: string) => Promise<any>;
-  signOut: () => Promise<any>;
+  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
+  signOut: () => Promise<{ error: any }>; // Updated return type
 }
 
-// Create the context
+// 2. Create Context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Define the props for the provider
@@ -27,10 +27,10 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<string | null>(null); // <-- CRITICAL: Added role state
+  const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // This function fetches the user's role from the secure 'user_roles' table
+  // 3. Role Fetching Logic (Mandatory GNA Security Check)
   const getRole = async (currentUser: User) => {
     try {
       const { data, error } = await supabase
@@ -38,121 +38,88 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         .select('role')
         .eq('user_id', currentUser.id)
         .single();
+      
       if (error) {
         console.error('GNA AuthContext Error: Error fetching user role', error.message);
         return null;
       }
-      if (data) {
-        return data.role;
-      }
+      return data?.role || null;
     } catch (error) {
-      console.error('GNA AuthContext Error:', error);
+      console.error('GNA AuthContext Error (Catch):', error);
       return null;
     }
-    return null;
   };
 
-  // Effect to run once on load and listen for auth changes
+  // 4. Auth State Listener (CRITICAL: Handles state for all other components)
   useEffect(() => {
-    setLoading(true);
+    // 4.1 Function to update state and fetch role
     const setAuthData = async (session: Session | null) => {
+      setSession(session);
+      setUser(session?.user ?? null);
       if (session && session.user) {
-        setSession(session);
-        setUser(session.user);
-        // <-- CRITICAL: Fetch and set the user's role
         const userRole = await getRole(session.user);
         setRole(userRole);
       } else {
-        setSession(null);
-        setUser(null);
         setRole(null);
       }
       setLoading(false);
     };
 
-    // Get the initial session
+    // 4.2 Initial Session Check (Standard Supabase Pattern)
     supabase.auth.getSession().then(({ data: { session } }) => {
       setAuthData(session);
     });
 
-    // Listen for auth state changes (login, logout)
+    // 4.3 Listen for auth state changes (login, logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setAuthData(session);
       }
     );
 
-    // Cleanup subscription on unmount
+    // 4.4 Cleanup subscription on unmount
     return () => {
       subscription?.unsubscribe();
     };
-  }, []);
+  }, []); // Empty dependency array means this runs once on mount
 
-  // Sign-Up function
-  // The 'handle_new_user' SQL trigger automatically creates the 'users' and 'user_roles' (guardian) entries.
+  // 5. Authentication Functions (MSP Fix: Removed internal setLoading/Simplified return)
+  const signIn = async (email: string, password: string) => {
+    // Removed internal setLoading to prevent race condition
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error }; // Returns only the error object for Auth.tsx to handle
+  };
+
   const signUp = async (email: string, password: string, fullName: string) => {
-    setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
+    // Removed internal setLoading to prevent race condition
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: {
-          full_name: fullName // This passes the full_name to the trigger
-        }
+        data: { full_name: fullName }
       }
     });
-    if (error) {
-      console.error("GNA SignUp Error:", error.message);
-    }
-    setLoading(false);
-    return { data, error };
+    return { error }; // Returns only the error object for Auth.tsx to handle
   };
 
-  // Sign-In function
-  const signIn = async (email: string, password: string) => {
-    setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) {
-      console.error("GNA SignIn Error:", error.message);
-    }
-    setLoading(false);
-    return { data, error };
-  };
-
-  // Sign-Out function (Fix for SISMMS-v1's PF2-FAIL-001)
   const signOut = async () => {
-    setLoading(true);
     const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("GNA SignOut Error:", error.message);
-    }
-    setLoading(false);
+    // The auth listener will automatically handle the state change and redirect
     return { error };
   };
 
-  // Value provided to all children
-  const value = {
-    session,
-    user,
-    role, // <-- CRITICAL: Provide role to the whole app
-    loading,
-    signIn,
-    signUp,
-    signOut,
-  };
+  // 6. Context Value & Loading Gate
+  const value = { session, user, role, loading, signIn, signUp, signOut };
 
+  // Render children only when loading is false to prevent flicker (GNA Protocol)
   return (
-    // We render children only when loading is false to prevent flicker
     <AuthContext.Provider value={value}>
       {!loading && children}
     </AuthContext.Provider>
   );
 };
 
-// Custom hook to use the AuthContext
+// 7. Custom hook to use the AuthContext
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

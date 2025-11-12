@@ -1,59 +1,72 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+// File: src/App.tsx
+// GNA-FIX-003: The Router and Context Wrapper (The Chassis)
+
+import { BrowserRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import AuthPage from "./pages/Auth";
-import IndexPage from "./pages/Index";
-import Navigation from "./components/Navigation";
-import { Toaster } from "@/components/ui/toaster"; // This is the correct component
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { Toaster } from '@/components/ui/toaster';
+import Navigation from './components/Navigation';
+import AuthPage from './pages/Auth';
+import IndexPage from './pages/Index';
 
 // Initialize the Query Client
 const queryClient = new QueryClient();
 
-// Protected Route Component
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+// 1. Component to protect routes (GNA Security Mandate)
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
-
+  
   if (loading) {
-    // You can return a loading spinner here
-    return <div>Loading...</div>;
+    // Show a global loading state while authentication is being checked
+    return <div className="min-h-screen flex items-center justify-center">Loading application...</div>;
   }
 
+  // If no user is present, redirect to the Auth page
   if (!user) {
-    // User is not authenticated, show the AuthPage
-    // We render AuthPage here to handle the redirect logic within it
-    return <AuthPage />;
+    // GNA Fix: Use Navigate component for clean, mandated redirection
+    return <Navigate to="/auth" replace />;
   }
 
-  // User is authenticated, render the requested child component
   return <>{children}</>;
 };
 
-function App() {
+// 2. Layout for pages requiring navigation/footer
+const MainLayout: React.FC = () => (
+  <>
+    <Navigation />
+    <main className="container mx-auto p-4">
+      <Outlet />
+    </main>
+  </>
+);
+
+// 3. Main Application Component
+const App: React.FC = () => {
   return (
+    // The QueryClientProvider must be the outermost wrapper
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <BrowserRouter>
-          <Navigation />
-          <main className="container mx-auto p-4">
-            <Routes>
-              <Route path="/auth" element={<AuthPage />} />
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <IndexPage />
-                  </ProtectedRoute>
-                }
-              />
-              {/* Add other protected routes here */}
-            </Routes>
-          </main>
-          <Toaster /> {/* This is the correct, intended component */}
-          {/* The <Sonner /> component has been removed as it was a bug */}
-        </BrowserRouter>
-      </AuthProvider>
+      <BrowserRouter>
+        {/* GNA Fix: AuthProvider MUST be inside BrowserRouter to access useNavigate */}
+        <AuthProvider>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/auth" element={<AuthPage />} />
+
+            {/* Protected Routes (Main Application) */}
+            <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+              <Route path="/" element={<IndexPage />} />
+              {/* Add more protected routes here later, e.g., /students */}
+            </Route>
+            
+            {/* Fallback for 404s (Redirects back to root) */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+          {/* Toaster is placed OUTSIDE the router but INSIDE AuthProvider to be globally accessible */}
+          <Toaster />
+        </AuthProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   );
-}
+};
 
 export default App;

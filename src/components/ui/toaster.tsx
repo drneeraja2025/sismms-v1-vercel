@@ -1,6 +1,6 @@
 // File: src/components/ui/toaster.tsx
 import * as React from "react"
-// Assuming a dependency file named toast.tsx exists (present in your structure)
+// Components exported from the file you just created (toast.tsx)
 import {
   Toast,
   ToastClose,
@@ -11,8 +11,8 @@ import {
   type ToastProps,
 } from "@/components/ui/toast"
 
-import { create } from "zustand"
-import { nanoid } from "nanoid"
+import { create } from "zustand" // Package added in Step 1
+import { nanoid } from "nanoid" // Package added in Step 1
 
 // 1. Define Toast Types and Store State
 type ToasterToast = Omit<ToastProps, "id"> & {
@@ -39,7 +39,6 @@ const useToastStore = create<State>((set, get) => ({
 }))
 
 // 2. The Toaster Component (The Visual Container)
-// Exported so it can be rendered in App.tsx
 export function Toaster() {
   const { toasts, removeToast } = useToastStore()
 
@@ -63,10 +62,8 @@ export function Toaster() {
 }
 
 // 3. The Utility Function (The CRUCIAL Export that fixes the error)
-// Exported so other files (like Auth.tsx) can use it directly.
 export function toast({ ...props }: ToasterToast) {
   useToastStore.getState().addToast(props)
 }
 
-// Re-export the type for TypeScript files that need it (like Auth.tsx)
 export type { ToasterToast }

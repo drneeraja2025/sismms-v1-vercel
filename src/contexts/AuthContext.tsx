@@ -1,9 +1,10 @@
 // File: src/contexts/AuthContext.tsx
-// GNA-FIX-002: The Brain of the Application (Final Audited Version)
+// GNA-FIX-002: The Brain of the Application (ULTIMATE FINAL FIX)
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '@/utility/SupabaseClient'; // Using alias for consistency
+import { supabase } from '@/utility/SupabaseClient';
 import { Session, User } from '@supabase/supabase-js';
+import { useNavigate } from 'react-router-dom'; // Required for final redirect
 
 // 1. Define Types
 interface AuthContextType {
@@ -13,7 +14,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
-  signOut: () => Promise<{ error: any }>; // Updated return type
+  signOut: () => Promise<{ error: any }>;
 }
 
 // 2. Create Context
@@ -29,20 +30,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  
+  const navigate = useNavigate(); // Used for post-Magic Link redirect
+
   // 3. Role Fetching Logic (Mandatory GNA Security Check)
   const getRole = async (currentUser: User) => {
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', currentUser.id)
         .single();
-      
-      if (error) {
-        console.error('GNA AuthContext Error: Error fetching user role', error.message);
-        return null;
-      }
       return data?.role || null;
     } catch (error) {
       console.error('GNA AuthContext Error (Catch):', error);
@@ -50,7 +47,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // 4. Auth State Listener (CRITICAL: Handles state for all other components)
+  // 4. CRITICAL FIX: Ensure the session is set immediately on load
   useEffect(() => {
     // 4.1 Function to update state and fetch role
     const setAuthData = async (session: Session | null) => {
@@ -65,46 +62,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(false);
     };
 
-    // 4.2 Initial Session Check (Standard Supabase Pattern)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setAuthData(session);
-    });
-
-    // 4.3 Listen for auth state changes (login, logout)
+    // 4.2 Auth State Listener (Handles all sign-in/out events)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setAuthData(session);
       }
     );
 
+    // 4.3 Initial Session Check: This must be done to fix the Magic Link flaw
+    supabase.auth.getSession().then(({ data: { session } }) => {
+       setAuthData(session);
+       
+       // GNA FINAL CHECK: If a session exists, redirect immediately to prevent the ProtectedRoute loop.
+       if (session && window.location.pathname === '/auth') {
+           navigate('/', { replace: true });
+       }
+    });
+
     // 4.4 Cleanup subscription on unmount
     return () => {
       subscription?.unsubscribe();
     };
-  }, []); // Empty dependency array means this runs once on mount
+  }, [navigate]); // navigate is a dependency, though stable
 
-  // 5. Authentication Functions (MSP Fix: Removed internal setLoading/Simplified return)
+  // 5. Authentication Functions (No change here - logic is already correct)
   const signIn = async (email: string, password: string) => {
-    // Removed internal setLoading to prevent race condition
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error }; // Returns only the error object for Auth.tsx to handle
+    return { error }; 
   };
-
   const signUp = async (email: string, password: string, fullName: string) => {
-    // Removed internal setLoading to prevent race condition
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { full_name: fullName }
-      }
+      options: { data: { full_name: fullName } }
     });
-    return { error }; // Returns only the error object for Auth.tsx to handle
+    return { error };
   };
-
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
-    // The auth listener will automatically handle the state change and redirect
     return { error };
   };
 
@@ -112,6 +107,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const value = { session, user, role, loading, signIn, signUp, signOut };
 
   // Render children only when loading is false to prevent flicker (GNA Protocol)
+  // This ensures the ProtectedRoute doesn't redirect before the session is known.
   return (
     <AuthContext.Provider value={value}>
       {!loading && children}

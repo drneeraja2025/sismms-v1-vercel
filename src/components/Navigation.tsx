@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 // CRITICAL FIX: Removed local asset import, relying on /public folder directly.
-// We assume MMSlogo.jpg and NASLogo.png have been moved/copied to the public folder.
 
 const Navigation = () => {
   const { user, signOut, role } = useAuth();
@@ -27,7 +26,7 @@ const Navigation = () => {
           <div className="flex items-center gap-4">
             {/* MMS Logo - CORRECTED PATH to /public */}
             <img
-              src="/MMSlogo.jpg" // GNA FIX: Direct reference from public folder (assuming file is moved there)
+              src="/MMSlogo.jpg" // GNA FIX: Direct reference from public folder
               alt="मिल्वॉकी मराठी शाळा"
               className="h-14 w-14 object-contain rounded-lg bg-white p-1"
             />
@@ -40,7 +39,11 @@ const Navigation = () => {
           {/* Right Side: Logout Button */}
           <div className="flex items-center gap-4">
             {user ? (
+              // Authenticated Links (Phase 2 Routing)
               <div className="flex items-center gap-2">
+                <Button variant="ghost" asChild>
+                  <Link to="/students">Students</Link>
+                </Button>
                 <span className="hidden text-sm text-primary-foreground/90 sm:inline capitalize">{role}</span>
                 <Button variant="outline" onClick={handleSignOut} className="border-primary-foreground/20 text-[#dfc9a9] bg-[#151c3e]">
                   <LogOut className="h-4 w-4 mr-2" />
@@ -57,7 +60,7 @@ const Navigation = () => {
             <img
               src="/NASlogo.png" 
               alt="Powered by NAS"
-              title="Powered by Nearaj's AI Services"
+              title="Powered by Nearajs AI Services"
               className="h-8 w-auto opacity-70"
             />
           </div>

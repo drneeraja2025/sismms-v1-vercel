@@ -1,14 +1,14 @@
-// File: src/pages/Students.tsx (FIXED)
-// GNA-FIX-007: The Students Administration Hub (READ Functionality)
+// File: src/pages/Students.tsx (Final Version with View Profile Link Fix)
 
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../utility/SupabaseClient'; // CRITICAL PATH FIX: Replaced '@/utility/SupabaseClient'
-import { useAuth } from '../contexts/AuthContext'; // CRITICAL PATH FIX: Replaced '@/contexts/AuthContext'
-import { Button } from '../components/ui/button'; // CRITICAL PATH FIX
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'; // CRITICAL PATH FIX
+import { supabase } from '../utility/SupabaseClient'; // Fixed path
+import { useAuth } from '../contexts/AuthContext';    // Fixed path
+import { Button } from '../components/ui/button';     // Fixed path
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'; // Fixed path
 import { Plus, Loader2 } from 'lucide-react';
-import StudentManager from '../components/StudentManager'; // CRITICAL FIX: Changed from StudentForm to StudentManager
+import StudentManager from '../components/StudentManager'; 
+import { Link } from 'react-router-dom'; // <--- REQUIRED IMPORT FOR LINK
 
 // Define the expected data structure based on the GNA-FIX-SQL-002 schema
 interface Student {
@@ -35,29 +35,38 @@ const fetchStudents = async (): Promise<Student[]> => {
 const StudentsPage: React.FC = () => {
   const { user, loading: authLoading, role } = useAuth();
   const [isFormOpen, setIsFormOpen] = React.useState(false);
+  
+  // CRITICAL FIX: Normalize role here, at the start of the component
+  const normalizedRole = role ? role.toLowerCase() : null; 
+  
+  // CRITICAL FIX: Check if the user is authorized, based on the *retrieved role*
+  const canView = normalizedRole === 'admin' || normalizedRole === 'teacher';
 
-  // 2. Query Hook for React Query
+  // 1. PERMISSION GATE: Block unauthorized users immediately after role check
+  if (authLoading) {
+    return <div className="flex justify-center items-center h-full"><Loader2 className="mr-2 h-8 w-8 animate-spin" /> Authenticating Permissions...</div>;
+  }
+  
+  if (!canView) {
+      // Return the final Access Denied screen, ensuring no components load
+      return <div className="text-xl text-red-600">Access Denied: You must be an Admin or Teacher to view this page. The current system role read is: **{role || 'N/A'}**</div>;
+  }
+  
+  // 2. Query Hook for React Query - Runs ONLY if canView is TRUE
   const { data: students, isLoading, error } = useQuery({
     queryKey: ['students'],
     queryFn: fetchStudents,
-    // GNA Mandate: Only enable the query if the user is authenticated (security)
-    enabled: !!user && !authLoading, 
+    // GNA Mandate: Query only runs if user object exists AND we have permission
+    enabled: !!user && canView, 
   });
 
-  if (authLoading || isLoading) {
-    return <div className="flex justify-center items-center h-full"><Loader2 className="mr-2 h-8 w-8 animate-spin" /> Loading Students...</div>;
+
+  if (isLoading) {
+    return <div className="flex justify-center items-center h-full"><Loader2 className="mr-2 h-8 w-8 animate-spin" /> Loading Students Data...</div>;
   }
 
   if (error) {
-    // This will catch RLS errors if a non-staff user tries to access the page
     return <div className="text-destructive">Error loading students: {error.message}. Access may be restricted by RLS policy.</div>;
-  }
-
-  // GNA Security Check: Only display the list if staff/admin role is confirmed
-  const canView = role === 'admin' || role === 'teacher';
-
-  if (!canView) {
-      return <div className="text-xl text-red-600">Access Denied: You must be an Admin or Teacher to view this page.</div>;
   }
 
   return (
@@ -81,7 +90,10 @@ const StudentsPage: React.FC = () => {
                   <p className="font-semibold">{student.last_name}, {student.first_name}</p>
                   <p className="text-sm text-gray-500">ID: {student.student_id} | Class: {student.class}</p>
                 </div>
-                <Button variant="outline" size="sm">View Profile</Button>
+                {/* FINAL FIX: View Profile Link */}
+                <Link to={`/students/${student.id}`} key={`link-${student.id}`}>
+                    <Button variant="outline" size="sm">View Profile</Button>
+                </Link>
               </div>
             ))}
           </div>
@@ -89,7 +101,7 @@ const StudentsPage: React.FC = () => {
       </Card>
 
       {/* Student Creation Form Modal */}
-      <StudentManager // FIX: Renamed component usage
+      <StudentManager 
         isOpen={isFormOpen} 
         onClose={() => setIsFormOpen(false)} 
         // Note: For now, the form only handles creation, not editing.

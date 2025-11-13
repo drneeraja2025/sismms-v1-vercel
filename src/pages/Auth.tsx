@@ -1,9 +1,10 @@
 // File: src/pages/Auth.tsx
+// GNA-FIX-004: The Login/Signup UI (Final Password Reset Fix)
 
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom'; // Added useLocation
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '@/utility/SupabaseClient'; 
+import { supabase } from '@/utility/SupabaseClient'; // Required for direct reset call
 // Imports for placeholder UI components
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +23,7 @@ const AuthPage = () => {
   
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation(); // To check for recovery token
+  const location = useLocation(); 
 
   // CRITICAL FIX: Check URL for recovery token on load
   useEffect(() => {
@@ -35,10 +36,9 @@ const AuthPage = () => {
         variant: "default",
       });
     } else if (view !== 'reset') {
-        // Default view if no recovery token is found
         setView('login');
     }
-  }, [location.hash, view]); // Added view to dependency to fix render issue
+  }, [location.hash, view]);
 
 
   // Logic for final password update (when reset form is displayed)
@@ -65,7 +65,6 @@ const AuthPage = () => {
     }
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        // Redirects back to our /auth route so the logic above can catch the token
         redirectTo: window.location.origin + '/auth' 
     });
 
@@ -96,7 +95,7 @@ const AuthPage = () => {
           toast({ title: "Login Failed", description: error.message, variant: "destructive" }); 
         } else { 
           toast({ title: "Welcome back!", description: "Successfully logged in." }); 
-          // Final Logic Fix: Force the redirect immediately after successful login
+          // CRITICAL FIX: Force the redirect immediately after successful login
           navigate('/', { replace: true }); 
         }
       }

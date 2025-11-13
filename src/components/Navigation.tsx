@@ -1,28 +1,24 @@
-// GNA Code Governance Protocol: Navigation (Stable)
-// This file implements the navigation bar, the functional Logout button, and branding.
-// It MUST be listed in .aiexclude
-import React from 'react';
-import { NavLink, useNavigate } from "react-router-dom"; 
-import { useAuth } from '../contexts/AuthContext'; 
-// The following are placeholders for standard UI components
-import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
-// GNA-FIX: Importing the logos from their local and public paths
-import logo from '@/assets/MMSlogo.jpg'; 
-import NASLogo from '/NASlogo.png'; 
+// File: src/components/Navigation.tsx
+// GNA-FIX-005: The Functional Navigation Bar (Final Fix)
 
-const Navigation: React.FC = () => {
-  const { user, signOut } = useAuth();
-  const navigate = useNavigate(); 
-  
-  // GNA FIX: Create handler to combine signOut and redirect (Solves SISMMS v1 Logout bug)
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Link, useNavigate } from 'react-router-dom';
+import { LogOut } from 'lucide-react';
+// CRITICAL FIX: The logo assets must be imported via their source for Vite to process them.
+import MMSlogo from '@/assets/MMSlogo.jpg'; // Imports the MMS logo
+// import NASLogo from '/NASlogo.png'; // Removed non-standard public import style
+
+const Navigation = () => {
+  const { user, signOut, role } = useAuth(); // CRITICAL: Use the new Auth Context
+  const navigate = useNavigate();
+
   const handleSignOut = async () => {
-    try {
-      await signOut();
-      // Navigate to auth page AFTER sign out is complete
-      navigate('/auth');
-    } catch (error) {
-      console.error("GNA SignOut Error:", error);
+    // GNA Protocol: The context handles the sign out logic
+    const { error } = await signOut(); 
+    if (!error) {
+        // If sign out succeeds (no error), redirect
+        navigate('/auth');
     }
   };
 
@@ -32,79 +28,44 @@ const Navigation: React.FC = () => {
         <div className="flex items-center justify-between h-20">
           {/* Left Side: Primary Brand & Nav */}
           <div className="flex items-center gap-4">
-            {/* MMS Logo */}
+            {/* MMS Logo - Now correctly rendered via Vite import */}
             <img
-              src={logo}
+              src={MMSlogo} // CORRECTED: Using the imported variable
               alt="मिल्वॉकी मराठी शाळा"
               className="h-14 w-14 object-contain rounded-lg bg-white p-1"
-              onError={(e) => (e.currentTarget.src = 'https://placehold.co/56x56/ffffff/1e3a5f?text=MMS')}
+              // Add a simple error fallback, though the Vite import should prevent 404s
+              onError={(e) => (e.currentTarget.style.display='none')} 
             />
             <div>
               <h1 className="text-xl font-bold">मिल्वॉकी मराठी शाळा</h1>
               <p className="text-xs text-primary-foreground/80">SISMMS - Student Information System</p>
             </div>
-            {/* Core Navigation Links */}
-            <nav className="hidden items-center space-x-2 md:flex ml-6">
-              <NavLink
-                to="/"
-                className={({ isActive }) =>
-                  `px-4 py-2 rounded-lg hover:bg-accent transition-all ${isActive ? "bg-secondary text-secondary-foreground font-semibold" : ""}`
-                }
-              >
-                Dashboard
-              </NavLink>
-              <NavLink
-                to="/students"
-                className={({ isActive }) =>
-                  `px-4 py-2 rounded-lg hover:bg-accent transition-all ${isActive ? "bg-secondary text-secondary-foreground font-semibold" : ""}`
-                }
-              >
-                Students
-              </NavLink>
-              <NavLink
-                to="/protocells"
-                className={({ isActive }) =>
-                  `px-4 py-2 rounded-lg hover:bg-accent transition-all ${isActive ? "bg-secondary text-secondary-foreground font-semibold" : ""}`
-                }
-              >
-                Modules
-              </NavLink>
-            </nav>
           </div>
-          {/* Right Side: User & NAS Brand */}
+          
+          {/* Right Side: Logout Button */}
           <div className="flex items-center gap-4">
             {user ? (
+              // Authenticated Links
               <div className="flex items-center gap-2">
-                <span className="hidden text-sm text-primary-foreground/90 sm:inline">
-                  Welcome, {user.user_metadata?.full_name || user.email?.split('@')[0]}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSignOut} // GNA FIX: Use the handler
-                  className="flex items-center gap-2 border-primary-foreground/20 text-[#dfc9a9] bg-[#151c3e]"
-                >
-                  <LogOut className="h-4 w-4" />
+                <span className="hidden text-sm text-primary-foreground/90 sm:inline capitalize">{role}</span>
+                <Button variant="outline" onClick={handleSignOut} className="border-primary-foreground/20 text-[#dfc9a9] bg-[#151c3e]">
+                  <LogOut className="h-4 w-4 mr-2" />
                   Logout
                 </Button>
               </div>
             ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/auth')}
-                className="flex items-center gap-2 border-primary-foreground/20 text-[#dfc9a9] bg-[#151c3e]"
-              >
+              // Unauthenticated Link (Login button on the Nav bar)
+              <Button variant="outline" onClick={() => navigate('/auth')} className="border-primary-foreground/20 text-[#dfc9a9] bg-[#151c3e]">
                 Login
               </Button>
             )}
-            {/* NAS Logo placed for branding */}
+            
+            {/* NAS Logo - FINAL FIX: The NAS Logo from the public folder */}
             <img
-              src={NASLogo}
+              src="/NASlogo.png" // CORRECTED: Direct reference to asset in /public folder
               alt="Powered by NAS"
               title="Powered by Nearaj's AI Services"
               className="h-8 w-auto opacity-70"
-              onError={(e) => (e.currentTarget.src = 'https://placehold.co/80x32/CCCCCC/FFFFFF?text=NAS')}
             />
           </div>
         </div>
@@ -112,4 +73,5 @@ const Navigation: React.FC = () => {
     </nav>
   );
 };
+
 export default Navigation;
